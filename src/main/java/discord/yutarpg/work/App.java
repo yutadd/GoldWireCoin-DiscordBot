@@ -59,7 +59,13 @@ public class App extends ListenerAdapter {
 			e1.printStackTrace();
 		}
 		node = so;
-
+		new Receiver().start();
+		try {
+			node.getOutputStream().write("balances~\r\n".getBytes());
+		} catch (IOException e1) {
+			// TODO 自動生成された catch ブロック
+			e1.printStackTrace();
+		}
 		role_income.put("総本部長", new BigDecimal(0.07));
 		role_income.put("顧問", new BigDecimal(0.07));
 		role_income.put("総本部-執行役員", new BigDecimal(0.06));
@@ -84,7 +90,7 @@ public class App extends ListenerAdapter {
 			e.printStackTrace();
 		}
 		new Diary().start();
-		new Receiver(node).start();
+		
 	}
 
 	String src_sign = null;
@@ -97,16 +103,16 @@ public class App extends ListenerAdapter {
 		Message msg = event.getMessage();
 		if (msg.getContentRaw().startsWith("%balance")) {
 			try {
-				node.getOutputStream().write("balance~".getBytes());
+				node.getOutputStream().write("balances~\r\n".getBytes());
 				Thread.sleep(100);
 			} catch (Exception e1) {
 				// TODO 自動生成された catch ブロック
 				e1.printStackTrace();
 			}
 			try {
-				channel.sendMessage(utxo.get(id_pub.get(msg.getAuthor().getId())).toString());
+				channel.sendMessage(utxo.get(id_pub.get(msg.getAuthor().getId()).split("0x0a")[0]).toString()).queue();;
 			}catch(Exception e) {
-				channel.sendMessage("さいふがなかったよ\r\nマイニングができてないだけかも");
+				channel.sendMessage("さいふがなかったよ\r\nマイニングができてないだけかも").queue();;
 			}
 		} else if (msg.getContentRaw().equals("%addr") || msg.getContentRaw().equals("%address")) {
 			channel.sendMessage("きみのさいふは" + id_pub.get(event.getAuthor().getId()) + "だよ！").queue();
@@ -123,10 +129,7 @@ public class App extends ListenerAdapter {
 					"├エラーの　ことを　セルリアンって　いうよ！\r\n" +
 					"└ウォレットの　ことを　ボスって　よぶよ！\r\n" +
 					"運営への報:moneybag:：\r\n" +
-					"├やくわりを　もってる　ひとには　１にちに１かい　コインが　ネットワークの　ウォレットから　しはらわれるよ！\r\n" +
-					"├ネットワークの　ウォレットの　アドレス :\r\n" +
-					" └`77ab79ebd0ab01f013a01908080826e78af2d8975fd765345c3f8de2c1ab7def0x0ad5d9b0dfe42277772cec27caa5a5df440800d0799308d4a592133b56c29a12f1`"
-					+
+					"└やくわりを　もってる　ひとには　１にちに１かい　コインが　ネットワークの　ウォレットから　しはらわれるよ！\r\n" +
 					"作者：狩りごっこが苦手なフレンズ";
 			channel.sendMessage(s).queue();
 		} else if (msg.getContentRaw().startsWith("%trade")) {
@@ -153,13 +156,13 @@ public class App extends ListenerAdapter {
 					System.out.print("パターンにマッチした。");
 					addr = cmd[1];
 				}else {
-					channel.sendMessage("あてさき　が　わからないよ！");
+					channel.sendMessage("あてさき　が　わからないよ！").queue();;
 				}
 			} catch (Exception e) {
-				channel.sendMessage("あてさき　が　わからないよ！");
+				channel.sendMessage("あてさき　が　わからないよ！").queue();;
 			}
 			if (addr == null) {
-				channel.sendMessage("あてさき　が　わからないよ！");
+				channel.sendMessage("あてさき　が　わからないよ！").queue();;
 				return;
 			}
 			BigDecimal fee = new BigDecimal(0);
@@ -201,7 +204,7 @@ public class App extends ListenerAdapter {
 				e.printStackTrace();
 			}
 		} else if (msg.getContentRaw().startsWith("%check")) {
-			channel.sendMessage("node:"+((node.isClosed())?"ERROR":"OK!"));
+			channel.sendMessage("node:"+((node.isClosed())?"ERROR":"OK!")).queue();;
 
 		}
 	}
