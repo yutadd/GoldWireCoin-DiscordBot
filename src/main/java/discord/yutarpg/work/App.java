@@ -3,10 +3,7 @@ package discord.yutarpg.work;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
@@ -17,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Random;
+import java.util.Scanner;
 
 import javax.security.auth.login.LoginException;
 
@@ -27,7 +25,6 @@ import net.dv8tion.jda.api.entities.ChannelType;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
-import net.dv8tion.jda.api.entities.PrivateChannel;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -48,6 +45,7 @@ public class App extends ListenerAdapter {
 	static int day = LocalDateTime.now().getDayOfMonth();
 	static HashMap<String, BigDecimal> role_income = new HashMap<>();
 	static BigDecimal netwall = new BigDecimal(10000);
+	static HashMap<String,BigDecimal> utxo=new HashMap<String,BigDecimal>();
 	/**
 	 * 0:確認中
 	 * １:ok
@@ -56,6 +54,15 @@ public class App extends ListenerAdapter {
 	static HashMap<String, Integer> kakunintyu = new HashMap<>();
 
 	public static void main(String[] args) {
+		Socket so = new Socket();
+		InetSocketAddress endpoint_ = new InetSocketAddress("localhost", 65261);
+		try {
+			so.connect(endpoint_, 1024);
+		} catch (IOException e1) {
+			// TODO 自動生成された catch ブロック
+			e1.printStackTrace();
+		}
+		node = so;
 
 		role_income.put("総本部長", new BigDecimal(0.07));
 		role_income.put("顧問", new BigDecimal(0.07));
@@ -68,135 +75,20 @@ public class App extends ListenerAdapter {
 		/*role_income.put("運営OB", 300);
 		role_income.put("常連", 200);
 		role_income.put("来賓", 100);*/
-		File f = new File("wallet.txt");
+		loadWallets();
 		try {
-			try {
-				BufferedReader fr = new BufferedReader(new FileReader(f));
-				for (; f.exists();) {
-					byte[] priv;
-					BigInteger[] pub = new BigInteger[2];
-					String line = fr.readLine();
-					if (line == null)
-						break;
-					BigInteger b = new BigInteger(line.split("~")[1], 16);
-					priv = b.toByteArray();
-					Secp256k1 g = new Secp256k1();
-					pub = g.multiply_G(b);
-					id_pub.put(line.split("~")[0], pub[0].toString(16) + "0x0a" + pub[1].toString(16));
-				}
-				fr.close();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			File file = new File("user_fee.txt");
-			try {
-				try {
-					BufferedReader filer = new BufferedReader(new FileReader(file));
-					for (; file.exists();) {
-						String line = filer.readLine();
-						if (line == null)
-							break;
-						String id = line.split("~")[0];
-						String fee = line.split("~")[1];
-						id_fee.put(id, fee);
-					}
-					filer.close();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			Socket so = new Socket();
-			InetSocketAddress endpoint_ = new InetSocketAddress("localhost", 65261);
-			so.connect(endpoint_, 1024);
-			so.getOutputStream().write("light\r\n".getBytes());
-			node = so;
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(1);
-		}
-		try {
-			jda = jdabuilder.setToken("Njc4NTQwMzMxMTQ2NDEyMDYy.GywYyP.tg1lB5gb0QxAPKNpMdZadDAh0IZBRM8TcjiIrU")
+			System.out.println("Please input DISCORD TOKEN!");
+			Scanner sc=new Scanner(System.in);
+			jda = jdabuilder.setToken(sc.nextLine())
 					.addEventListeners(new App()).setActivity(Activity.playing("%help で取引を開始しましょう！")).build();
 			jda.awaitReady();
+			sc.close();
 		} catch (LoginException | InterruptedException e) {
 			// TODO 自動生成された catch ブロック
 			e.printStackTrace();
 		}
 		new Diary().start();
-		Thread th_node = new Thread() {
-			@Override
-			public void run() {
-				InputStream sock_in = null;
-				try {
-					sock_in = node.getInputStream();
-				} catch (IOException e) {
-					// TODO 自動生成された catch ブロック
-					e.printStackTrace();
-				}
-				InputStreamReader sock_is = new InputStreamReader(sock_in);
-				BufferedReader sock_br = new BufferedReader(sock_is);
-
-				for (;;) {
-					boolean mitsukatta = false;
-					try {
-						String s = sock_br.readLine();
-						System.out.println(s);
-						if (s.startsWith("balance~")) {
-							for (MessageChannel mc : jda.getTextChannelsByName(s.split("~")[1], false)) {
-								mc.sendMessage(s.split("~")[2] + "がもってる　おかねは" + s.split("~")[3] + "だよ！").queue();
-								mitsukatta = true;
-							}
-							if (!mitsukatta) {
-								try {
-									User user = jda.getUserByTag(s.split("~")[1]);
-									PrivateChannel pc = user.openPrivateChannel().complete();
-									pc.sendMessage(s.split("~")[2] + "がもってる　おかねは" + s.split("~")[3] + "だよ！").queue();
-								} catch (Exception e) {
-									e.printStackTrace();
-									System.out.println("チャンネル、DMが見つかりませんでした。");
-								}
-							}
-						} else if (s.endsWith("~ok")) {
-							System.out.println("mining size : " + mining.size());
-							System.out.println(s);
-							MessageAction ma = mining.get(s.split("~")[0]).editMessage(
-									"`そうしん　したよ！[ok]\r\n　　＼\r\n　　とりひきが　せいとうだと　みとめられたよ[ok]\r\n　　　　　＼\r\n　　　　まいにんぐ　してるよ！`");
-							mining.put(s.split("~")[0], ma.complete());
-						} else if (s.endsWith("~denny")) {
-							try {
-								System.out.println("mining size : " + mining.size());
-								System.out.println(s);
-								if (mining.containsKey(s.split("~")[0])) {
-									mining.get(s.split("~")[0]).editMessage(
-											"`そうしん　したよ！[ok]\r\n　　＼\r\n　　とりひきが　みとめられなかったよ[X]\r\n　　　　　＼\r\n　　　　とりひきに しっぱいしたよ...`")
-									.queue();
-								}
-							} catch (Exception e) {
-								System.out.println("");
-							}
-							mining.clear();
-						} else if (s.endsWith("~mined")) {
-							String st = s.split("~")[0];
-							String[] hashs = st.split("0x0d");
-							for (String hash : hashs) {
-								if (mining.containsKey(hash)) {
-									mining.get(hash).editMessage(
-											"`そうしん　したよ！[ok]\r\n　　＼\r\n　　とりひきが　せいとうだと　みとめられたよ[ok]\r\n　　　　　＼\r\n　　　　とりひきが　かんりょうしたよ！[ok]`")
-									.queue();
-									mining.remove(hash);
-								}
-							}
-						}
-					} catch (IOException e) {
-						// TODO 自動生成された catch ブロック
-						e.printStackTrace();
-					}
-				}
-			}
-		};
-		th_node.start();
+		new Receiver(node).start();
 	}
 
 	String src_sign = null;
@@ -218,109 +110,12 @@ public class App extends ListenerAdapter {
 				kakunintyu.put(event.getAuthor().getId(), 2);
 			}
 		} else if (msg.getContentRaw().startsWith("%balance")) {
+			node.getOutputStream().write("balance~".getBytes());
+			Thread.sleep(100);
 			try {
-				if (id_pub.containsKey(event.getAuthor().getId())) {
-					try {
-						if (msg.getContentRaw().split(" ")[1] != null) {
-							try {
-								String sa = id_pub.get(msg.getContentRaw().split(" ")[1]);
-								String addr = null;
-								String[] cmd = msg.getContentRaw().split(" ");
-								String S_1 = null;
-								if (sa != null) {
-									//%balance 72364827346
-
-									node.getOutputStream().write(
-											(("balance~" + ((event.getChannel().getType().equals(ChannelType.PRIVATE))
-													? event.getAuthor().getAsTag()
-															: event.getChannel().getName()) + "~" + sa) + "\r\n").getBytes());
-									return;
-								} else {
-									//%balace @hoge#8763
-									//				<@!283764523>
-									if (cmd[1].startsWith("<@!")) {
-										S_1 = cmd[1].split("<@!")[1].split(">")[0];
-									} else if (cmd[1].startsWith("<@&")) {
-										S_1 = cmd[1].split("<@&")[1].split(">")[0];
-									} else if (cmd[1].startsWith("<@")) {
-										S_1 = cmd[1].split("<@")[1].split(">")[0];
-									} else if (id_pub.containsKey(cmd[1])) {
-										S_1 = cmd[1];
-									} else if (cmd[1].contains("0x0a")) {
-										addr = cmd[1];
-									} else {
-										channel.sendMessage("あてさきが　わからないよ！").queue();
-										return;
-									}
-								}
-								if (addr == null)
-									addr = id_pub.get(S_1);
-								node.getOutputStream()
-								.write(("balance~" + ((event.getChannel().getType().equals(ChannelType.PRIVATE))
-										? event.getAuthor().getAsTag()
-												: event.getChannel().getName()) + "~" + addr + "\r\n").getBytes());
-							} catch (Exception e) {
-								channel.sendMessage("ボスが　ゆうことを　きいてくれない...").queue();
-							}
-						} else {
-							try {
-								node.getOutputStream()
-								.write(("balance~"
-										+ ((event.getChannel().getType().equals(ChannelType.PRIVATE))
-												? event.getAuthor().getAsTag()
-														: event.getChannel().getName())
-										+ "~" + id_pub.get(event.getAuthor().getId()) + "\r\n").getBytes());
-							} catch (IOException e) {
-								channel.sendMessage("ボスが　ゆうことを　きいてくれない...").queue();
-							}
-						}
-					} catch (Exception e) {
-						try {
-							node.getOutputStream()
-							.write(("balance~"
-									+ ((event.getChannel().getType().equals(ChannelType.PRIVATE))
-											? event.getAuthor().getAsTag()
-													: event.getChannel().getName())
-									+ "~" + id_pub.get(event.getAuthor().getId()) + "\r\n").getBytes());
-						} catch (IOException en) {
-							channel.sendMessage("ボスが　ゆうことを　きいてくれない...").queue();
-						}
-					}
-
-				} else {
-					byte[] priv;
-					BigInteger[] pub = new BigInteger[2];
-					Secp256k1 g = new Secp256k1();
-					BigInteger[] pubK1 = new BigInteger[2];
-					Random rn = new Random();
-					BigInteger priK = new BigInteger(255, rn);
-					pubK1 = g.multiply_G(priK);
-					priv = priK.toByteArray();
-					pub = pubK1;
-					if (priv != null && pub != null) {
-						try {
-							id_pub.put(event.getAuthor().getId(), pub[0].toString(16) + "0x0a" + pub[1].toString(16));
-							pub_priv.put(id_pub.get(event.getAuthor().getId()), new BigInteger(priv).toString(16));
-							if (f.exists()) {
-								FileWriter fw = new FileWriter(f, true);
-								fw.write(event.getAuthor().getId() + "~" + new BigInteger(priv).toString(16));
-								fw.close();
-								channel.sendMessage("あたらしい　さいふをつくったよ！" + 0.0).queue();
-							} else {
-								System.out.println("wallet.txt not found");
-							}
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-				}
-
-				/*EmbedBuilder eb = new EmbedBuilder();
-				eb.setImage("https://lohas.nicoseiga.jp/thumb/6855312i?1499437519");
-				eb.setTitle("みんみ...");
-				channel.sendMessage(eb.build()).queue();*/
-			} catch (Exception e) {
-				channel.sendMessage("せるりあんが　わいちゃった　ごめんね！" + e.getCause()).queue();
+				channel.sendMessage(utxo.get(id_pub.get(msg.getAuthor().getId())).toString());
+			}catch(Exception e) {
+				channel.sendMessage("さいふがなかったよ\r\nマイニングができてないだけかも");
 			}
 		} else if (msg.getContentRaw().equals("%addr") || msg.getContentRaw().equals("%address")) {
 			channel.sendMessage("きみのさいふは" + id_pub.get(event.getAuthor().getId()) + "だよ！").queue();
@@ -510,6 +305,33 @@ public class App extends ListenerAdapter {
 				TextChannel c = jda.getTextChannelById(681418313938632718l);
 				c.sendMessage(cmd[1]).queue();
 			}
+		}
+	}
+	static void loadWallets() {
+		File f = new File("wallet.txt");
+		try {
+			try {
+				BufferedReader fr = new BufferedReader(new FileReader(f));
+				for (; f.exists();) {
+					byte[] priv;
+					BigInteger[] pub = new BigInteger[2];
+					String line = fr.readLine();
+					if (line == null)
+						break;
+					BigInteger b = new BigInteger(line.split("~")[1], 16);
+					priv = b.toByteArray();
+					Secp256k1 g = new Secp256k1();
+					pub = g.multiply_G(b);
+					id_pub.put(line.split("~")[0], pub[0].toString(16) + "0x0a" + pub[1].toString(16));
+				}
+				fr.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 
